@@ -10,6 +10,11 @@ To launch the console application, enter the following on a Unix/Linux command l
 python3 main.py
 ```
 
+Debugging:
+```bash
+pudb3 main.py
+```
+
 ## Important
 
 Turn off QuickEdit in your terminal's settings. If QuickEdit is enabled, selecting any text temporarily freezes script execution, which could cause the user to inadvertantly freeze communication with the rocket.
@@ -27,3 +32,37 @@ For example, entering `launch` in the command line will simulate a rocket launch
 Logs are stored by default in a Logs folder in the same directory as the cloned project.
 
 A log entry can be made anywhere in the application by calling `self.app.logger.log(message, logfile)`
+
+
+## Starting up communications
+
+```bash
+# Running redis server
+screen -S redis
+redis-server
+ctr-A ctr-D
+
+# Running radio listener
+screen -S radio
+python3 radio.py
+ctr-A ctr-D
+
+# Running interactive GUI
+python3 main.py
+```
+
+## Shutting it down
+```bash
+quit
+y
+
+screen -r redis
+ctr-A
+:quit
+Enter
+
+screen-r radio
+ctr-A
+:quit
+Enter
+```
