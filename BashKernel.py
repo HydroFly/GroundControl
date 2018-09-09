@@ -1,4 +1,4 @@
-import curses
+import curses, redis
 import time, datetime
 from curses.textpad import Textbox, rectangle
 from builtins import object
@@ -10,8 +10,12 @@ class BashKernel:
         self.cursor_x=0
         self.cursor_y=0
 
+        self.rocketheight = 10
+
         # Initialize a new screen
         self.stdscr = curses.initscr()
+
+        self.r = redis.StrictRedis('localhost', 6379, decode_responses=True)
 
         # Clean out the terminal
         self.stdscr.clear()
@@ -21,7 +25,7 @@ class BashKernel:
         # Don't let the user type traditional input while in the app
         curses.noecho()
         curses.cbreak()
-        self.stdscr.keypad(True)
+        self.stdscr.keypad(True)  
         curses.curs_set(0)
 
         # Measure the screen
@@ -39,11 +43,13 @@ class BashKernel:
         # Set initial variables
         self.message = ""
         self.commandresults1 = ""
-        self.commandresults2 = ""
+        self.commandresults2 = "" 
         self.commandresults3 = ""
         self.confirming = False
 
     def draw_cycle(self, data, app):
+        self.height, self.width = self.stdscr.getmaxyx()
+
         self.app = app
         # self.stdscr.clear()
         self.height, self.width = self.stdscr.getmaxyx()
@@ -72,7 +78,6 @@ class BashKernel:
         self.stdscr.addstr(self.height-3,0,self.commandresults3, curses.color_pair(7))
         self.stdscr.addstr(self.height-3,len(self.commandresults3), " " * (self.width - len(self.commandresults3) - 1 ),curses.color_pair(7))
 
-
     def exec_command(self, command):
         if(command == "launch"):
             if(self.app.rocket.launched):
@@ -82,13 +87,17 @@ class BashKernel:
             self.app.rocket.t = 0
             self.commandresults1 = "Rocket has launched"
 
+        elif(command=="break"):
+            raise Exception()
+        
         elif(command=="quit" or command == "q" or command=="exit"):
             self.commandresults2 = "$ " + command
             self.commandresults3 = "Are you sure you want to quit? (y/n)"
             self.confirming = True
 
-        elif(command=="abort" and self.app.rocket.launched == True):
+        elif(command=="abort"):
             self.commandresults1 = "Rocket launch aborted"
+            self.r.set('abort', True)
             # self.app.rocket.abort_launch()
             self.app.rocket.launched = False
 
@@ -133,7 +142,7 @@ class BashKernel:
 
         if(k==263): # Backspace key
             mess = self.message
-            self.message = mess[:-2]      
+            self.message = mess[:-2]
         
     def draw_statusbar(self):
         statusbarstr = "Flight Status | Enter 'quit' to exit | All systems nominal "
@@ -145,8 +154,14 @@ class BashKernel:
         self.stdscr.attroff(curses.color_pair(3))
 
     def draw_screen(self):
+        h = self.r.lpop('data:height')
+        if h is not None:
+            self.rocketheight = h
         self.stdscr.addstr(1,0, "Flight Data: LIVE")
-        self.stdscr.addstr(2,0," Rocket height: {} ft".format("{0:.4f}".format(self.app.rocket.z)))
+        self.stdscr.addstr(2,0," " * self.width)
+        # foo = ''
+        # foo = '{0:.2f}'.format(self.rocketheight)
+        self.stdscr.addstr(2,0," Rocket height: {} ft".format(self.rocketheight))
         self.stdscr.addstr(3,0," Time-of-flight: {} sec".format(self.app.rocket.t))
         self.stdscr.addstr(4,0," Water remaining: 4.5 gal")
         self.stdscr.addstr(5,0," Nozle pressure: 10 psi")
