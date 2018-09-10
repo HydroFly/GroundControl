@@ -15,7 +15,10 @@ class BashKernel:
         # Initialize a new screen
         self.stdscr = curses.initscr()
 
+        self.press = 0
+
         self.r = redis.StrictRedis('localhost', 6379, decode_responses=True)
+        self.t = 0
 
         # Clean out the terminal
         self.stdscr.clear()
@@ -79,6 +82,7 @@ class BashKernel:
         self.stdscr.addstr(self.height-3,len(self.commandresults3), " " * (self.width - len(self.commandresults3) - 1 ),curses.color_pair(7))
 
     def exec_command(self, command):
+        # TODO: add help, man, list
         if(command == "launch"):
             if(self.app.rocket.launched):
                 self.commandresults1 = "The rocket has already launched"
@@ -97,8 +101,7 @@ class BashKernel:
 
         elif(command=="abort"):
             self.commandresults1 = "Rocket launch aborted"
-            self.r.set('abort', True)
-            # self.app.rocket.abort_launch()
+            self.r.rpush('commands', 'abort')
             self.app.rocket.launched = False
 
         elif(command=="logs"):
@@ -154,20 +157,31 @@ class BashKernel:
         self.stdscr.attroff(curses.color_pair(3))
 
     def draw_screen(self):
-        h = self.r.lpop('data:height')
+        h = self.r.lrange('data:height', -1, -1) # far right
+
         if h is not None:
-            self.rocketheight = h
-        self.stdscr.addstr(1,0, "Flight Data: LIVE")
+            self.rocketheight = h[0]
+        hform = '{0:.3f}'.format(float(self.rocketheight))
+
+        t = self.r.lrange('data:timeOfFlight', -1, -1) # far right
+        if t is not None:
+            self.t = t[0]
+        tform = '{0:.3f}'.format(float(self.t))
+
+
+        press = self.r.lrange('data:pressure', -1, -1)
+        if press is not None:
+            self.press = press[0]
+        pressForm = '{0:.3f}'.format(float(self.press))
+
+        self.stdscr.addstr(1,0, "Flight Data: LIVE*")
         self.stdscr.addstr(2,0," " * self.width)
-        # foo = ''
-        # foo = '{0:.2f}'.format(self.rocketheight)
-        self.stdscr.addstr(2,0," Rocket height: {} ft".format(self.rocketheight))
-        self.stdscr.addstr(3,0," Time-of-flight: {} sec".format(self.app.rocket.t))
-        self.stdscr.addstr(4,0," Water remaining: 4.5 gal")
-        self.stdscr.addstr(5,0," Nozle pressure: 10 psi")
-        self.stdscr.addstr(6,0," Distance from GCS: 30 ft")
-        self.stdscr.addstr(7,0,"GCS Info")
-        self.stdscr.addstr(8,0," Data logging: Strict")
+        self.stdscr.addstr(2,0," Rocket height: {} meters".format(hform))
+        self.stdscr.addstr(3,0," Time-of-flight: {} sec".format(tform))
+        self.stdscr.addstr(4,0," Water remaining: 4.5 L")
+        self.stdscr.addstr(5,0," Nozle pressure: {} kPa".format(pressForm))
+        self.stdscr.addstr(6,0,"GCS Info")
+        self.stdscr.addstr(7,0," Data logging: Strict")
         if(self.app.rocket.launched):
             self.app.rocket.z += 0.0009
 
